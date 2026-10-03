@@ -54,7 +54,7 @@ export default function Home() {
   const share = () => (navigator.share ? navigator.share({ text: `I sent you money. Tap to claim: ${link}` }) : navigator.clipboard.writeText(link));
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 p-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 p-6">
       <h1 className="text-3xl font-semibold">Remit</h1>
       {!w ? (
         <><p className="text-neutral-500">Send dollars anywhere, as a link.</p><Login onWallet={setW} /></>

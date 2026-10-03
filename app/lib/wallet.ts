@@ -8,8 +8,8 @@ import { toViemAccount } from "@category-labs/mera/viem";
 import { HDKey } from "@scure/bip32";
 import { entropyToMnemonic, mnemonicToSeedSync } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { createWalletClient, http } from "viem";
-import { chain } from "./config";
+import { createWalletClient } from "viem";
+import { chain, transport } from "./config";
 
 // Passkeys are bound to the domain, so the same passkey works on every page of this site.
 const rpId = () => window.location.hostname;
@@ -20,7 +20,7 @@ function accountFromPrf(prfOutput: Uint8Array) {
   if (!node.privateKey) throw new Error("derivation produced no key");
   const session = createSecp256k1SigningSession({ privateKey: node.privateKey });
   const account = toViemAccount(session);
-  const wallet = createWalletClient({ account, chain, transport: http() });
+  const wallet = createWalletClient({ account, chain, transport: transport() });
   return { account, wallet, end: () => session.end() };
 }
 

@@ -2,7 +2,8 @@ import { createPublicClient, http, parseAbi } from "viem";
 import { monadTestnet } from "viem/chains";
 
 export const chain = monadTestnet;
-export const publicClient = createPublicClient({ chain, transport: http() });
+export const transport = () => http(process.env.NEXT_PUBLIC_RPC); // falls back to the chain default
+export const publicClient = createPublicClient({ chain, transport: transport() });
 
 export const TOKEN = process.env.NEXT_PUBLIC_TOKEN as `0x${string}`;
 export const ESCROW = process.env.NEXT_PUBLIC_ESCROW as `0x${string}`;

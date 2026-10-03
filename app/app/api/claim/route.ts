@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createWalletClient, http, isAddress, isHex } from "viem";
+import { createWalletClient, isAddress, isHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { chain, ESCROW, escrowAbi, publicClient } from "@/lib/config";
+import { chain, transport, ESCROW, escrowAbi, publicClient } from "@/lib/config";
 
 // Relayer: pays gas for claims so recipients with brand-new accounts need no MON.
 // It can't redirect funds: the contract checks the claim key's signature over `to`.
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
   const account = privateKeyToAccount(process.env.RELAYER_PRIVATE_KEY as `0x${string}`);
-  const wallet = createWalletClient({ account, chain, transport: http() });
+  const wallet = createWalletClient({ account, chain, transport: transport() });
   try {
     const { request } = await publicClient.simulateContract({
       account, address: ESCROW, abi: escrowAbi, functionName: "claim", args: [BigInt(id), to, sig],

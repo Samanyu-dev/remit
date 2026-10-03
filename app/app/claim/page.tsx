@@ -37,10 +37,11 @@ export default function Claim() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 p-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 p-6">
       <h1 className="text-3xl font-semibold">Remit</h1>
       {link === null && <p>This link isn’t valid.</p>}
-      {link && amount === 0n && !done && <p>This money has already been claimed.</p>}
+      {link && amount === undefined && <p className="text-neutral-500">Loading…</p>}
+      {link && amount === 0n && !done && <p>This link has already been used, or doesn’t exist.</p>}
       {link && amount !== undefined && amount > 0n && !done && (
         <>
           <p className="text-4xl font-semibold">{fmt(amount)} is waiting for you</p>
