@@ -34,7 +34,8 @@ contract RemitEscrow {
     uint256 public nextId;
     mapping(uint256 => Link) public links;
 
-    event Sent(uint256 indexed id, address indexed sender, address indexed claimKey, uint256 amount, uint64 expiry);
+    /// `memo` is an encrypted receipt only the sender's passkey can open (see app/lib/receipts.ts).
+    event Sent(uint256 indexed id, address indexed sender, address indexed claimKey, uint256 amount, uint64 expiry, bytes memo);
     event Claimed(uint256 indexed id, address indexed to);
     event Refunded(uint256 indexed id);
 
@@ -42,8 +43,8 @@ contract RemitEscrow {
         token = _token;
     }
 
-    function send(uint96 amount, address claimKey, uint64 expiry) external returns (uint256 id) {
-        id = _open(msg.sender, amount, claimKey, expiry);
+    function send(uint96 amount, address claimKey, uint64 expiry, bytes calldata memo) external returns (uint256 id) {
+        id = _open(msg.sender, amount, claimKey, expiry, memo);
         require(token.transferFrom(msg.sender, address(this), amount), "pull failed");
     }
 
@@ -58,9 +59,10 @@ contract RemitEscrow {
         uint256 validBefore,
         uint8 v,
         bytes32 r,
-        bytes32 s
+        bytes32 s,
+        bytes calldata memo
     ) external returns (uint256 id) {
-        id = _open(from, amount, claimKey, expiry);
+        id = _open(from, amount, claimKey, expiry, memo);
         token.receiveWithAuthorization(
             from, address(this), amount, 0, validBefore, authNonce(claimKey, expiry), v, r, s
         );
@@ -70,13 +72,17 @@ contract RemitEscrow {
         return keccak256(abi.encode(address(this), claimKey, expiry));
     }
 
-    function _open(address sender, uint96 amount, address claimKey, uint64 expiry) private returns (uint256 id) {
+    function _open(address sender, uint96 amount, address claimKey, uint64 expiry, bytes calldata memo)
+        private
+        returns (uint256 id)
+    {
         require(amount > 0, "zero amount");
+        require(memo.length <= 512, "memo too long");
         require(claimKey != address(0), "no claim key");
         require(expiry > block.timestamp, "expired");
         id = nextId++;
         links[id] = Link(sender, claimKey, amount, expiry);
-        emit Sent(id, sender, claimKey, amount, expiry);
+        emit Sent(id, sender, claimKey, amount, expiry, memo);
     }
 
     /// sig = claimKey's eth_sign over claimDigest(id, to).

@@ -33,7 +33,7 @@ contract RemitEscrowTest is Test {
 
     function _send() internal returns (uint256) {
         vm.prank(alice);
-        return esc.send(25e6, vm.addr(claimPk), uint64(block.timestamp + 7 days));
+        return esc.send(25e6, vm.addr(claimPk), uint64(block.timestamp + 7 days), hex"c0ffee");
     }
 
     function _sig(uint256 pk, uint256 id, address to) internal view returns (bytes memory) {
@@ -55,6 +55,12 @@ contract RemitEscrowTest is Test {
         bytes memory sig = _sig(claimPk, id, bob);
         vm.expectRevert("bad signature");
         esc.claim(id, makeAddr("mallory"), sig);
+    }
+
+    function test_memoTooLong() public {
+        vm.prank(alice);
+        vm.expectRevert("memo too long");
+        esc.send(1e6, vm.addr(claimPk), uint64(block.timestamp + 1 days), new bytes(513));
     }
 
     function test_refundOnlyAfterExpiry() public {

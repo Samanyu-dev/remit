@@ -35,7 +35,7 @@ contract GaslessSendTest is Test {
     function test_relayerSubmitsWithoutAliceGas() public {
         (uint8 v, bytes32 r, bytes32 s) = _auth(25e6, claimKey);
         vm.prank(makeAddr("relayer"));
-        uint256 id = esc.sendWithAuthorization(alice, 25e6, claimKey, expiry, validBefore, v, r, s);
+        uint256 id = esc.sendWithAuthorization(alice, 25e6, claimKey, expiry, validBefore, v, r, s, "");
         (address sender, address key, uint96 amount,) = esc.links(id);
         assertEq(sender, alice);
         assertEq(key, claimKey);
@@ -46,20 +46,20 @@ contract GaslessSendTest is Test {
     function test_relayerCantSwapClaimKey() public {
         (uint8 v, bytes32 r, bytes32 s) = _auth(25e6, claimKey);
         vm.expectRevert("invalid signature");
-        esc.sendWithAuthorization(alice, 25e6, makeAddr("relayerKey"), expiry, validBefore, v, r, s);
+        esc.sendWithAuthorization(alice, 25e6, makeAddr("relayerKey"), expiry, validBefore, v, r, s, "");
     }
 
     function test_relayerCantChangeAmount() public {
         (uint8 v, bytes32 r, bytes32 s) = _auth(25e6, claimKey);
         vm.expectRevert("invalid signature");
-        esc.sendWithAuthorization(alice, 90e6, claimKey, expiry, validBefore, v, r, s);
+        esc.sendWithAuthorization(alice, 90e6, claimKey, expiry, validBefore, v, r, s, "");
     }
 
     function test_noReplay() public {
         (uint8 v, bytes32 r, bytes32 s) = _auth(25e6, claimKey);
-        esc.sendWithAuthorization(alice, 25e6, claimKey, expiry, validBefore, v, r, s);
+        esc.sendWithAuthorization(alice, 25e6, claimKey, expiry, validBefore, v, r, s, "");
         vm.expectRevert("authorization used");
-        esc.sendWithAuthorization(alice, 25e6, claimKey, expiry, validBefore, v, r, s);
+        esc.sendWithAuthorization(alice, 25e6, claimKey, expiry, validBefore, v, r, s, "");
     }
 
     function test_onlyEscrowCanRedeemAuth() public {

@@ -8,7 +8,7 @@ const uint = (v: unknown) => typeof v === "string" && /^\d{1,30}$/.test(v);
 // The sender's EIP-3009 signature binds amount, claim key and expiry, so the relayer can only submit it as-is.
 export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
-  if (!isAddress(b.from) || !isAddress(b.claimKey) || !uint(b.amount) || !uint(b.expiry) || !uint(b.validBefore) || !isHex(b.sig) || b.sig.length !== 132) {
+  if (!isAddress(b.from) || !isAddress(b.claimKey) || !uint(b.amount) || !uint(b.expiry) || !uint(b.validBefore) || !isHex(b.sig) || b.sig.length !== 132 || !isHex(b.memo) || b.memo.length > 2 + 1024) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
   try {
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       address: ESCROW,
       abi: escrowAbi,
       functionName: "sendWithAuthorization",
-      args: [b.from, BigInt(b.amount), b.claimKey, BigInt(b.expiry), BigInt(b.validBefore), Number(v), r, s],
+      args: [b.from, BigInt(b.amount), b.claimKey, BigInt(b.expiry), BigInt(b.validBefore), Number(v), r, s, b.memo],
     });
     const [ev] = parseEventLogs({ abi: escrowAbi, eventName: "Sent", logs: receipt.logs });
     return NextResponse.json({ id: ev.args.id.toString(), hash: receipt.transactionHash });

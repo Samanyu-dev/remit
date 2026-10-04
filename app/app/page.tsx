@@ -5,6 +5,8 @@ import { post } from "@/lib/api";
 import { ESCROW, TOKEN, chain, escrowAbi, publicClient, tokenAbi } from "@/lib/config";
 import { fmt, linkFor, toUnits } from "@/lib/money";
 import type { Wallet } from "@/lib/wallet";
+import { sealReceipt } from "@/lib/receipts";
+import { History } from "./History";
 import { Login } from "./Login";
 
 const WEEK = 7 * 24 * 3600;
@@ -21,6 +23,8 @@ export default function Home() {
   const [w, setW] = useState<Wallet>();
   const [bal, setBal] = useState<bigint>();
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [version, setVersion] = useState(0);
   const [status, setStatus] = useState("");
   const [link, setLink] = useState("");
 
@@ -51,11 +55,12 @@ export default function Home() {
         primaryType: "ReceiveWithAuthorization",
         message: { from, to: ESCROW, value, validAfter: 0n, validBefore, nonce },
       });
+      const memo = await sealReceipt(w!.receiptsKey, { note, key });
       const { id } = await post("/api/send", {
-        from, claimKey, sig, amount: value.toString(), expiry: expiry.toString(), validBefore: validBefore.toString(),
+        from, claimKey, sig, memo, amount: value.toString(), expiry: expiry.toString(), validBefore: validBefore.toString(),
       });
       setLink(linkFor(location.origin, BigInt(id), key));
-      setStatus(""); setAmount(""); refresh();
+      setStatus(""); setAmount(""); setNote(""); setVersion((v) => v + 1); refresh();
     } catch (e) {
       setStatus((e as Error).message.split("\n")[0]);
     }
@@ -95,10 +100,12 @@ export default function Home() {
           ) : (
             <div className="flex flex-col gap-3">
               <input className="input text-2xl" inputMode="decimal" placeholder="$0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <input className="input" maxLength={140} placeholder="What's it for? (only you can read this)" value={note} onChange={(e) => setNote(e.target.value)} />
               <button className="btn" disabled={!Number(amount) || !!status} onClick={send}>Create payment link</button>
             </div>
           )}
           {status && <p className="text-sm text-neutral-500">{status}</p>}
+          <History w={w} version={version} />
           <p className="break-all text-xs text-neutral-400">{w.account.address}</p>
         </>
       )}

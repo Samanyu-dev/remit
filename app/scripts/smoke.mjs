@@ -37,7 +37,7 @@ const sig = await sender.signTypedData({
   primaryType: "ReceiveWithAuthorization",
   message: { from: sender.address, to: ESCROW, value, validAfter: 0n, validBefore, nonce: await read(ESCROW, "authNonce", [claimKey, expiry]) },
 });
-const sendBody = { from: sender.address, claimKey, sig, amount: value.toString(), expiry: expiry.toString(), validBefore: validBefore.toString() };
+const sendBody = { from: sender.address, claimKey, sig, memo: "0xc0ffee", amount: value.toString(), expiry: expiry.toString(), validBefore: validBefore.toString() };
 const { id } = await post("/api/send", sendBody);
 console.log("gasless send ok, link id", id);
 await post("/api/send", sendBody).then(() => { throw new Error("replayed send succeeded"); }, () => console.log("replayed send rejected"));
@@ -49,4 +49,10 @@ const bal = await read(TOKEN, "balanceOf", [to]);
 if (bal !== value) throw new Error(`recipient balance ${bal}`);
 await post("/api/claim", { id, to, sig: claimSig }).then(() => { throw new Error("double claim succeeded"); }, () => {});
 if ((await pub.getBalance({ address: sender.address })) !== 0n) throw new Error("sender somehow has MON");
+if (process.env.ENVIO_API_TOKEN) {
+  await new Promise((r) => setTimeout(r, 3000)); // let HyperSync catch up
+  const h = await (await fetch(`${base}/api/history?sender=${sender.address}`)).json();
+  if (h.logs?.length !== 1 || !h.logs[0].data.includes("c0ffee")) throw new Error(`history: ${JSON.stringify(h).slice(0, 200)}`);
+  console.log("history via HyperSync ok");
+} else console.log("skipped history check (no ENVIO_API_TOKEN)");
 console.log("OK: $12.50 sent and claimed; sender and recipient never held MON; replay + double claim rejected");
