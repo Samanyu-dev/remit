@@ -77,7 +77,16 @@ export default function Home() {
     refresh();
   }
 
-  const share = () => (navigator.share ? navigator.share({ text: `I sent you money. Tap to claim: ${link}` }) : navigator.clipboard.writeText(link));
+  async function share() {
+    try {
+      if (navigator.share) return await navigator.share({ text: `I sent you money. Tap to claim: ${link}` });
+    } catch (e) {
+      // Closing the share sheet, or tapping while it's open, isn't an error worth showing.
+      if ((e as Error).name === "AbortError" || (e as Error).name === "InvalidStateError") return;
+    }
+    await navigator.clipboard.writeText(link);
+    setStatus("Link copied");
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 p-6">
