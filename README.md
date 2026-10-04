@@ -1,5 +1,7 @@
 # Remit
 
+**Live (Monad testnet):** https://remit-bice.vercel.app — on a phone, open it and "Add to Home Screen" to install.
+
 Send dollars (AUSD) across borders as a link. Recipient claims with a passkey (Mera). Built on Monad for the Metropolis hackathon.
 
 ## Contracts
