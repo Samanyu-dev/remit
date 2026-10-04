@@ -100,7 +100,7 @@ export default function Home() {
           ) : (
             <div className="flex flex-col gap-3">
               <input className="input text-2xl" inputMode="decimal" placeholder="$0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              <input className="input" maxLength={140} placeholder="What's it for? (only you can read this)" value={note} onChange={(e) => setNote(e.target.value)} />
+              <input className="input" maxLength={100} placeholder="What's it for? (only you can read this)" value={note} onChange={(e) => setNote(e.target.value)} />
               <button className="btn" disabled={!Number(amount) || !!status} onClick={send}>Create payment link</button>
             </div>
           )}
