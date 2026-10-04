@@ -4,6 +4,18 @@ pragma solidity ^0.8.24;
 interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    // EIP-3009, supported by AUSD on Monad mainnet.
+    function receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
 }
 
 /// Send-by-link escrow. The link carries a one-off private key ("claim key").
@@ -31,13 +43,40 @@ contract RemitEscrow {
     }
 
     function send(uint96 amount, address claimKey, uint64 expiry) external returns (uint256 id) {
+        id = _open(msg.sender, amount, claimKey, expiry);
+        require(token.transferFrom(msg.sender, address(this), amount), "pull failed");
+    }
+
+    /// Gasless send: `from` signs an EIP-3009 ReceiveWithAuthorization to this contract and
+    /// anyone (our relayer) submits it. The nonce commits to the claim key and expiry, so a
+    /// submitter who swaps them in produces a different nonce and the signature fails.
+    function sendWithAuthorization(
+        address from,
+        uint96 amount,
+        address claimKey,
+        uint64 expiry,
+        uint256 validBefore,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (uint256 id) {
+        id = _open(from, amount, claimKey, expiry);
+        token.receiveWithAuthorization(
+            from, address(this), amount, 0, validBefore, authNonce(claimKey, expiry), v, r, s
+        );
+    }
+
+    function authNonce(address claimKey, uint64 expiry) public view returns (bytes32) {
+        return keccak256(abi.encode(address(this), claimKey, expiry));
+    }
+
+    function _open(address sender, uint96 amount, address claimKey, uint64 expiry) private returns (uint256 id) {
         require(amount > 0, "zero amount");
         require(claimKey != address(0), "no claim key");
         require(expiry > block.timestamp, "expired");
         id = nextId++;
-        links[id] = Link(msg.sender, claimKey, amount, expiry);
-        require(token.transferFrom(msg.sender, address(this), amount), "pull failed");
-        emit Sent(id, msg.sender, claimKey, amount, expiry);
+        links[id] = Link(sender, claimKey, amount, expiry);
+        emit Sent(id, sender, claimKey, amount, expiry);
     }
 
     /// sig = claimKey's eth_sign over claimDigest(id, to).

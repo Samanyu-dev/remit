@@ -1,13 +1,21 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { generatePrivateKey, privateKeyToAddress } from "viem/accounts";
-import { maxUint256, parseEventLogs } from "viem";
-import { ESCROW, TOKEN, escrowAbi, publicClient, tokenAbi } from "@/lib/config";
+import { post } from "@/lib/api";
+import { ESCROW, TOKEN, chain, escrowAbi, publicClient, tokenAbi } from "@/lib/config";
 import { fmt, linkFor, toUnits } from "@/lib/money";
 import type { Wallet } from "@/lib/wallet";
 import { Login } from "./Login";
 
 const WEEK = 7 * 24 * 3600;
+const ReceiveWithAuthorization = [
+  { name: "from", type: "address" },
+  { name: "to", type: "address" },
+  { name: "value", type: "uint256" },
+  { name: "validAfter", type: "uint256" },
+  { name: "validBefore", type: "uint256" },
+  { name: "nonce", type: "bytes32" },
+] as const;
 
 export default function Home() {
   const [w, setW] = useState<Wallet>();
@@ -22,23 +30,31 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch on login
   useEffect(() => { refresh(); }, [refresh]);
 
-  async function tx(p: Parameters<Wallet["wallet"]["writeContract"]>[0]) {
-    const hash = await w!.wallet.writeContract(p);
-    return publicClient.waitForTransactionReceipt({ hash });
-  }
-
   async function send() {
     try {
-      const value = toUnits(amount);
-      setStatus("Approving…");
-      const allowance = await publicClient.readContract({ address: TOKEN, abi: tokenAbi, functionName: "allowance", args: [w!.account.address, ESCROW] });
-      if (allowance < value) await tx({ address: TOKEN, abi: tokenAbi, functionName: "approve", args: [ESCROW, maxUint256] } as never);
       setStatus("Sending…");
+      const value = toUnits(amount);
+      const from = w!.account.address;
       const key = generatePrivateKey();
-      const expiry = BigInt(Math.floor(Date.now() / 1000) + WEEK);
-      const receipt = await tx({ address: ESCROW, abi: escrowAbi, functionName: "send", args: [value, privateKeyToAddress(key), expiry] } as never);
-      const [ev] = parseEventLogs({ abi: escrowAbi, eventName: "Sent", logs: receipt.logs });
-      setLink(linkFor(location.origin, ev.args.id, key));
+      const claimKey = privateKeyToAddress(key);
+      const now = Math.floor(Date.now() / 1000);
+      const expiry = BigInt(now + WEEK);
+      const validBefore = BigInt(now + 3600);
+      const [name, nonce] = await Promise.all([
+        publicClient.readContract({ address: TOKEN, abi: tokenAbi, functionName: "name" }),
+        publicClient.readContract({ address: ESCROW, abi: escrowAbi, functionName: "authNonce", args: [claimKey, expiry] }),
+      ]);
+      // One signature, no gas: authorizes the escrow to pull exactly `value` for this claim key.
+      const sig = await w!.account.signTypedData({
+        domain: { name, version: "1", chainId: chain.id, verifyingContract: TOKEN },
+        types: { ReceiveWithAuthorization },
+        primaryType: "ReceiveWithAuthorization",
+        message: { from, to: ESCROW, value, validAfter: 0n, validBefore, nonce },
+      });
+      const { id } = await post("/api/send", {
+        from, claimKey, sig, amount: value.toString(), expiry: expiry.toString(), validBefore: validBefore.toString(),
+      });
+      setLink(linkFor(location.origin, BigInt(id), key));
       setStatus(""); setAmount(""); refresh();
     } catch (e) {
       setStatus((e as Error).message.split("\n")[0]);
@@ -47,8 +63,13 @@ export default function Home() {
 
   async function faucet() {
     setStatus("Getting test dollars…");
-    await tx({ address: TOKEN, abi: tokenAbi, functionName: "mint", args: [w!.account.address, toUnits("100")] } as never).catch((e) => setStatus(e.message.split("\n")[0]));
-    setStatus(""); refresh();
+    try {
+      await post("/api/faucet", { to: w!.account.address });
+      setStatus("");
+    } catch (e) {
+      setStatus((e as Error).message);
+    }
+    refresh();
   }
 
   const share = () => (navigator.share ? navigator.share({ text: `I sent you money. Tap to claim: ${link}` }) : navigator.clipboard.writeText(link));

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { privateKeyToAccount } from "viem/accounts";
+import { post } from "@/lib/api";
 import { ESCROW, escrowAbi, publicClient } from "@/lib/config";
 import { fmt, parseLink } from "@/lib/money";
 import type { Wallet } from "@/lib/wallet";
@@ -28,8 +29,7 @@ export default function Claim() {
       const raw = await publicClient.readContract({ address: ESCROW, abi: escrowAbi, functionName: "claimDigest", args: [link!.id, to] });
       // claimDigest already applies the EIP-191 prefix, so sign the raw digest directly.
       const sig = await privateKeyToAccount(link!.key).sign({ hash: raw });
-      const res = await fetch("/api/claim", { method: "POST", body: JSON.stringify({ id: link!.id.toString(), to, sig }) });
-      if (!res.ok) throw new Error((await res.json()).error);
+      await post("/api/claim", { id: link!.id.toString(), to, sig });
       setDone(true);
     } catch (e) {
       setStatus((e as Error).message);

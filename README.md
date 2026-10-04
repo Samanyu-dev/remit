@@ -28,13 +28,16 @@ pnpm dev
 ```
 Smoke test (testnet + local relayer, no passkey prompt): `node --env-file=.env.local scripts/smoke.mjs` with `pnpm dev --port 3100` running.
 
-Passkeys need HTTPS or `localhost`. The relayer key in `RELAYER_PRIVATE_KEY` pays gas for claims, so it needs testnet MON.
+Passkeys need HTTPS or `localhost`. The relayer key in `RELAYER_PRIVATE_KEY` pays gas for everything (faucet, send, claim), so it needs testnet MON. Users never hold MON:
+
+- **Send:** the sender signs an EIP-3009 `ReceiveWithAuthorization` (supported by mainnet AUSD). Its nonce is `keccak256(escrow, claimKey, expiry)`, so the relayer can't change where the money goes.
+- **Claim:** the link's one-off key signs the recipient's address, so the relayer can't redirect it.
 
 ## Testnet deployment
 
 | | Address |
 |---|---|
-| TestUSD (tAUSD) | `0xFe8e4AF169CA2206306B2cf8c1865b8d4b2815FD` |
-| RemitEscrow | `0x37d4248Bb51b175359C44d9a9799aF4c55e0627b` |
+| TestUSD (tAUSD) | `0xBc77A66Ca36eF02a3Ad1ad4049Cb4c52388810D5` |
+| RemitEscrow | `0x4b308d968495971525CaFe27488B82a85ad26967` |
 
 RPC: `https://rpc-testnet.monadinfra.com` (the default `testnet-rpc.monad.xyz` timed out for us).
