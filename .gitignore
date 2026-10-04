@@ -4,3 +4,4 @@ contracts/lib/
 node_modules/
 .env*
 .DS_Store
+remit-logo.png
