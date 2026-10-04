@@ -1,31 +1,48 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-app);
+  --color-ink: #050814;
+  --color-navy: #0d1733;
+  --color-mute: #8b93a7;
+  --color-up: #3ddc97;
+  --color-down: #ff7a7a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+:root { color-scheme: dark; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(120% 60% at 50% -10%, #1f3d8a 0%, rgba(31, 61, 138, 0) 60%),
+    radial-gradient(80% 50% at 100% 30%, #12285e 0%, rgba(18, 40, 94, 0) 70%),
+    var(--color-ink);
+  background-attachment: fixed;
+  color: #f4f6fb;
+  font-family: var(--font-app), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.input { @apply rounded-xl border border-neutral-300 bg-transparent px-4 py-3 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:focus:border-neutral-100; }
-.btn { @apply rounded-xl bg-neutral-900 px-4 py-3 font-medium text-white disabled:opacity-40 dark:bg-white dark:text-neutral-900; }
-.btn-ghost { @apply rounded-xl px-4 py-3 font-medium underline; }
-.card { @apply rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800; }
+/* App frame: phone-width column that respects the notch and home indicator. */
+.screen {
+  @apply mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 px-5;
+  padding-top: max(env(safe-area-inset-top), 1.25rem);
+  padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
+}
+
+.glass { @apply rounded-[28px] border border-white/10 bg-white/[0.06] backdrop-blur-xl; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 20px 60px -20px rgba(0,0,0,.6); }
+.pill { @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-sm; }
+.btn { @apply w-full rounded-2xl bg-white px-5 py-4 text-base font-semibold text-ink transition active:scale-[.98] disabled:opacity-40; }
+.btn-ghost { @apply w-full rounded-2xl px-5 py-4 text-base font-medium text-white/80 active:text-white; }
+/* 16px+ so iOS doesn't zoom the page when an input is focused. */
+.input { @apply w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 text-base outline-none placeholder:text-mute focus:border-white/40; }
+.action { @apply flex flex-1 flex-col items-center gap-2 rounded-[22px] bg-white py-4 text-sm font-semibold text-ink transition active:scale-[.97]; }
+
+.sheet-backdrop { @apply fixed inset-0 z-40 bg-black/60 backdrop-blur-sm; animation: fade .2s ease-out; }
+.sheet {
+  @apply fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-md flex-col gap-4 rounded-t-[32px] border-t border-white/10 bg-navy px-5 pt-3;
+  padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
+  animation: rise .28s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes rise { from { transform: translateY(100%); } }
+@keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet-backdrop { animation: none; } }

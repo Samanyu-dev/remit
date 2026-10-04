@@ -26,4 +26,5 @@ export const escrowAbi = parseAbi([
   "function links(uint256) view returns (address sender, address claimKey, uint96 amount, uint64 expiry)",
   "function claimDigest(uint256 id, address to) view returns (bytes32)",
   "event Sent(uint256 indexed id, address indexed sender, address indexed claimKey, uint256 amount, uint64 expiry, bytes memo)",
+  "event Claimed(uint256 indexed id, address indexed to)",
 ]);

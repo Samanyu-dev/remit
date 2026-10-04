@@ -1,40 +1,40 @@
 import { NextResponse } from "next/server";
-import { encodeEventTopics, isAddress, pad } from "viem";
+import { decodeEventLog, encodeEventTopics, isAddress, pad, type Hex } from "viem";
 import { ESCROW, escrowAbi } from "@/lib/config";
+import { hypersync, type HsLog } from "@/lib/hypersync";
 
-// Envio HyperSync: Monad's RPC caps eth_getLogs at ~100 blocks (under a minute of history),
-// so payment history comes from HyperSync, which scans the whole chain in one paginated query.
-const HYPERSYNC = "https://monad-testnet.hypersync.xyz/query";
-const [SENT] = encodeEventTopics({ abi: escrowAbi, eventName: "Sent" });
+const abi = escrowAbi;
+const [SENT] = encodeEventTopics({ abi, eventName: "Sent" });
+const [CLAIMED] = encodeEventTopics({ abi, eventName: "Claimed" });
 
-type HsLog = { block_number: number; data: string; topic0: string; topic1: string; topic2: string; topic3: string };
+const sentArgs = (l: HsLog) =>
+  decodeEventLog({ abi, eventName: "Sent", topics: [l.topic0, l.topic1, l.topic2, l.topic3] as [Hex, ...Hex[]], data: l.data as Hex }).args;
 
+// Everything the app's transaction list needs: links I sent (with my encrypted memos) and links I claimed.
 export async function GET(req: Request) {
-  const sender = new URL(req.url).searchParams.get("sender");
-  if (!sender || !isAddress(sender)) return NextResponse.json({ error: "bad request" }, { status: 400 });
+  const addr = new URL(req.url).searchParams.get("addr");
+  if (!addr || !isAddress(addr)) return NextResponse.json({ error: "bad request" }, { status: 400 });
+  try {
+    const me = pad(addr);
+    const mine = await hypersync([
+      { address: [ESCROW], topics: [[SENT], [], [me]] },
+      { address: [ESCROW], topics: [[CLAIMED], [], [me]] },
+    ]);
+    const claimedIds = mine.filter((l) => l.topic0 === CLAIMED).map((l) => l.topic1);
+    // Amounts for links I claimed live on their Sent events.
+    const claimedSent = claimedIds.length ? await hypersync([{ address: [ESCROW], topics: [[SENT], claimedIds] }]) : [];
+    const claimTime = new Map(mine.filter((l) => l.topic0 === CLAIMED).map((l) => [l.topic1, l.time]));
 
-  const logs: HsLog[] = [];
-  let from = Number(process.env.ESCROW_FROM_BLOCK ?? 0);
-  for (let page = 0; page < 20; page++) {
-    const res = await fetch(HYPERSYNC, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${process.env.ENVIO_API_TOKEN}` },
-      body: JSON.stringify({
-        from_block: from,
-        logs: [{ address: [ESCROW], topics: [[SENT], [], [pad(sender)]] }],
-        field_selection: { log: ["block_number", "data", "topic0", "topic1", "topic2", "topic3"] },
-      }),
-      cache: "no-store",
+    const sent = mine.filter((l) => l.topic0 === SENT).map((l) => {
+      const a = sentArgs(l);
+      return { kind: "sent", id: a.id.toString(), amount: a.amount.toString(), memo: a.memo, time: l.time };
     });
-    if (!res.ok) return NextResponse.json({ error: `history unavailable (${res.status})` }, { status: 502 });
-    const body = await res.json();
-    // The response carries logs either directly or in batches, depending on API version.
-    const batches = Array.isArray(body.data) ? body.data : [body.data];
-    for (const b of batches) logs.push(...(b?.logs ?? []));
-    if (body.next_block >= body.archive_height) break;
-    from = body.next_block;
+    const received = claimedSent.map((l) => {
+      const a = sentArgs(l);
+      return { kind: "received", id: a.id.toString(), amount: a.amount.toString(), from: a.sender, time: claimTime.get(l.topic1) ?? l.time };
+    });
+    return NextResponse.json({ items: [...sent, ...received].sort((x, y) => (y.time ?? 0) - (x.time ?? 0)) });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
   }
-  return NextResponse.json({
-    logs: logs.map((l) => ({ topics: [l.topic0, l.topic1, l.topic2, l.topic3], data: l.data, block: l.block_number })),
-  });
 }
