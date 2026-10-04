@@ -104,7 +104,7 @@ export default function Home() {
             <div className="card flex flex-col gap-3">
               <p>Link ready. Whoever opens it can claim the money.</p>
               <button className="btn" onClick={share}>Share link</button>
-              <button className="btn-ghost" onClick={() => setLink("")}>Send another</button>
+              <button className="btn-ghost" onClick={() => { setLink(""); setStatus(""); }}>Send another</button>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
